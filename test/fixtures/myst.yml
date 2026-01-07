@@ -1,0 +1,4 @@
+project:
+  substitutions:
+    version: "v1.3"
+    site_name: "MyST Docs"

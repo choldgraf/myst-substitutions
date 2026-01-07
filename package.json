@@ -1,0 +1,32 @@
+{
+  "name": "@jupyter-book/myst-plugin-substitutions",
+  "version": "0.1.0",
+  "description": "MyST plugin for simple text substitutions using Nunjucks",
+  "type": "module",
+  "main": "dist/index.mjs",
+  "scripts": {
+    "build": "esbuild src/index.mjs --bundle --platform=node --format=esm --outfile=dist/index.mjs --banner:js=\"import { createRequire } from 'module'; const require = createRequire(import.meta.url);\"",
+    "lint": "node --check src/index.mjs",
+    "test": "npm run lint && vitest run",
+    "test:watch": "vitest watch"
+  },
+  "keywords": [
+    "myst",
+    "plugin",
+    "substitutions",
+    "nunjucks"
+  ],
+  "author": "Jupyter Book Team",
+  "license": "MIT",
+  "dependencies": {
+    "js-yaml": "^4.1.0",
+    "myst-parser": "^1.6.3",
+    "myst-transforms": "^1.3.44",
+    "nunjucks": "^3.2.4",
+    "vfile": "^5.3.7"
+  },
+  "devDependencies": {
+    "esbuild": "^0.25.5",
+    "vitest": "^3.2.4"
+  }
+}

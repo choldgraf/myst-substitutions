@@ -1,0 +1,16 @@
+version: 1
+project:
+  title: myst-substitutions
+  plugins:
+    - ../dist/index.mjs
+    - https://raw.githubusercontent.com/jupyter-book/myst-plugins/main/plugins/demo/src/index.mjs
+  substitutions:
+    brand_emphasis: "**MyST Docs**"
+    version: "v1.3"
+    site_name: "MyST Docs"
+    release_channel: "stable"
+  toc:
+    - file: index.md
+    - file: contributing/index.md
+site:
+  template: book-theme
