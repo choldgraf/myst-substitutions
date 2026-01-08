@@ -19,6 +19,3 @@ docs: python-deps build
 
 docs-live: python-deps build
     cd docs && myst start
-
-publish: build
-    test -f dist/index.mjs

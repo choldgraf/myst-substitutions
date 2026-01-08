@@ -80,6 +80,7 @@ project:
     site_name: "**MyST Docs**"
 `,
       );
+      writeFileSync(path.join(tempDir, "index.md"), "Placeholder.");
       const tree = {
         type: "root",
         children: [
