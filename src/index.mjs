@@ -1,4 +1,4 @@
-import { existsSync, readFileSync } from "fs";
+import { readFileSync } from "fs";
 import path from "path";
 import { mystParse } from "myst-parser";
 import { getFrontmatter } from "myst-transforms";
@@ -6,75 +6,41 @@ import nunjucks from "nunjucks";
 import yaml from "js-yaml";
 import { VFile } from "vfile";
 
-// CH: Only expect myst.yml, simplify this logic
-const PROJECT_CONFIG_FILES = ["myst.yml", "myst.yaml"];
-
-// CH: Make clear why this function exists and is used. It feels like it might be unnecessarily complex
-function isPlainObject(value) {
-  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
-}
-
 function hasTemplateSyntax(text) {
   return text.includes("{{") || text.includes("{%") || text.includes("{#");
 }
 
-// CH: Don't worry about the smart quotes, assume users will use normal quotes
-// Normalize smart quotes so Nunjucks can parse filter arguments.
-function normalizeTemplateText(text) {
-  return text
-    .replaceAll("\u201C", '"')
-    .replaceAll("\u201D", '"')
-    .replaceAll("\u2018", "'")
-    .replaceAll("\u2019", "'");
+function ensureMapping(value, label) {
+  if (value && typeof value === "object" && !Array.isArray(value)) return value;
+  if (value != null) {
+    const kind = Array.isArray(value) ? "array" : typeof value;
+    console.warn(`myst-substitutions: ${label} must be a mapping, got ${kind}`);
+  }
+  return {};
 }
 
 function readYamlFile(filePath) {
-  try {
-    const text = readFileSync(filePath, "utf8");
-    const data = yaml.load(text);
-    return isPlainObject(data) ? data : {};
-  } catch {
-    return {};
-  }
+  const text = readFileSync(filePath, "utf8");
+  const data = yaml.load(text);
+  return ensureMapping(data, `config in ${filePath}`);
 }
 
-// CH: Don't worry about this, assume it exists, mystmd will error if the project config isn't there
-function findProjectConfig(rootDir) {
-  for (const filename of PROJECT_CONFIG_FILES) {
-    const fullPath = path.join(rootDir, filename);
-    if (existsSync(fullPath)) return fullPath;
-  }
-  return null;
-}
-
-// Read project.substitutions from myst.yml/myst.yaml in the project root.
+// Read project.substitutions from myst.yml in the project root.
 export function getProjectSubstitutions(rootDir) {
-  const configPath = findProjectConfig(rootDir);
-  if (!configPath) {
-    return {};
-  }
-
+  const configPath = path.join(rootDir, "myst.yml");
   const config = readYamlFile(configPath);
   const substitutions = config?.project?.substitutions;
-  const normalized = isPlainObject(substitutions) ? substitutions : {};
-  return normalized;
+  return ensureMapping(substitutions, `project.substitutions in ${configPath}`);
 }
 
-// CH: Assume filePath is always provided
 // Parse page frontmatter with MyST's frontmatter helper (no regex).
 export function getPageSubstitutions(filePath) {
-  if (!filePath) return {};
-  try {
-    const text = readFileSync(filePath, "utf8");
-    // CH: Why do we need the vfile here? We use mystParse by itself later on
-    const vfile = new VFile({ path: filePath });
-    const tree = mystParse(text, { vfile });
-    const { frontmatter } = getFrontmatter(vfile, tree);
-    const substitutions = frontmatter?.substitutions;
-    return isPlainObject(substitutions) ? substitutions : {};
-  } catch {
-    return {};
-  }
+  const text = readFileSync(filePath, "utf8");
+  const tree = mystParse(text);
+  const vfile = new VFile({ path: filePath });
+  const { frontmatter } = getFrontmatter(vfile, tree);
+  const substitutions = frontmatter?.substitutions;
+  return ensureMapping(substitutions, `frontmatter.substitutions in ${filePath}`);
 }
 
 // Merge substitution config so that page over-rides project.
@@ -88,10 +54,8 @@ export function mergeSubstitutions(projectSubstitutions, pageSubstitutions) {
 // Render with Nunjucks; return the original text if parsing fails.
 export function renderWithSubstitutions(text, substitutions, env) {
   if (!hasTemplateSyntax(text)) return text;
-  // CH: Normalization feels unnecessarily complex, only do this if truly needed
-  const normalized = normalizeTemplateText(text);
   try {
-    return env.renderString(normalized, substitutions);
+    return env.renderString(text, substitutions);
   } catch {
     return text;
   }
@@ -100,56 +64,51 @@ export function renderWithSubstitutions(text, substitutions, env) {
 // Parse inline MyST so substituted markdown becomes real AST nodes.
 function parseInlineMyst(content) {
   const tree = mystParse(content);
-  // CH: Add comments for each of these outcomesa and why they're there
-  if (!tree || !Array.isArray(tree.children)) return null;
-  if (tree.children.length === 0) return [];
-  if (tree.children.length === 1 && tree.children[0]?.type === "paragraph") {
-    return tree.children[0].children ?? [];
+  const children = tree?.children;
+  if (!Array.isArray(children)) return null;
+  if (children.length === 0) return [];
+  if (children.length === 1 && children[0]?.type === "paragraph") {
+    return children[0].children ?? [];
   }
   return null;
 }
 
-// CH: This is a confusing function to understand, either add comments, simplify, or use an upstream function
-// Depth-first traversal helper for AST nodes.
-function visit(node, parent, index, callback) {
-  if (!node) return;
-  callback(node, parent, index);
-  if (!Array.isArray(node.children)) return;
-  node.children.forEach((child, childIndex) => visit(child, node, childIndex, callback));
-}
+// Walk text nodes and replace Nunjucks templates with rendered inline MyST.
+function applySubstitutionsToChildren(children, substitutions, env) {
+  if (!Array.isArray(children)) return;
+  let index = 0;
+  while (index < children.length) {
+    const child = children[index];
+    if (child?.children) {
+      applySubstitutionsToChildren(child.children, substitutions, env);
+    }
+    if (child?.type !== "text" || typeof child.value !== "string") {
+      index += 1;
+      continue;
+    }
+    if (!hasTemplateSyntax(child.value)) {
+      index += 1;
+      continue;
+    }
 
-// CH: Isn't there a native way in the myst library to traverse or search the AST?
-// Collect text nodes that contain templating syntax.
-function collectTextNodes(root) {
-  const matches = [];
-  visit(root, null, null, (node, parent, index) => {
-    if (!parent || !Array.isArray(parent.children)) return;
-    if (node?.type !== "text" || typeof node.value !== "string") return;
-    if (!hasTemplateSyntax(node.value)) return;
-    matches.push({ node, parent, index });
-  });
-  return matches;
-}
-
-// Apply substitutions in reverse so splices keep indices stable.
-function applySubstitutionsToTree(tree, substitutions, env) {
-  const matches = collectTextNodes(tree);
-  for (let i = matches.length - 1; i >= 0; i -= 1) {
-    // CH: Add comments to each step so it's clear what's happening
-    const { node, parent, index } = matches[i];
-    const rendered = renderWithSubstitutions(node.value, substitutions, env);
-    if (rendered === node.value) continue;
+    const rendered = renderWithSubstitutions(child.value, substitutions, env);
+    if (rendered === child.value) {
+      index += 1;
+      continue;
+    }
 
     const inlineNodes = parseInlineMyst(rendered);
     if (inlineNodes === null) {
-      node.value = rendered;
+      child.value = rendered;
+      index += 1;
       continue;
     }
     if (inlineNodes.length === 0) {
-      parent.children.splice(index, 1);
+      children.splice(index, 1);
       continue;
     }
-    parent.children.splice(index, 1, ...inlineNodes);
+    children.splice(index, 1, ...inlineNodes);
+    index += inlineNodes.length;
   }
 }
 
@@ -172,7 +131,7 @@ const substitutionsTransform = {
 
       if (!Object.keys(substitutions).length) return tree;
 
-      applySubstitutionsToTree(tree, substitutions, env);
+      applySubstitutionsToChildren(tree.children, substitutions, env);
 
       return tree;
     };

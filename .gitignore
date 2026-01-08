@@ -4,3 +4,4 @@ site/
 .env
 _build
 __pycache__
+dist/

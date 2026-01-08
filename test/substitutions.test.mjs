@@ -30,6 +30,16 @@ describe("myst-substitutions", () => {
     expect(output).toBe("Hello MYST");
   });
 
+  it("renders filters with arguments", () => {
+    const env = createEnv();
+    const output = renderWithSubstitutions(
+      'Fancy filters: {{ site_name | replace("Docs", "Guide") }}',
+      { site_name: "MyST Docs" },
+      env,
+    );
+    expect(output).toBe("Fancy filters: MyST Guide");
+  });
+
   it("merges project and page substitutions with page override", () => {
     const project = getProjectSubstitutions(fixturesDir);
     const page = getPageSubstitutions(pagePath);
@@ -44,14 +54,6 @@ describe("myst-substitutions", () => {
     const env = createEnv();
     const output = renderWithSubstitutions("Nothing to replace here.", { name: "myst" }, env);
     expect(output).toBe("Nothing to replace here.");
-  });
-
-  it("handles smart quotes in filter arguments", () => {
-    const env = createEnv();
-    const input =
-      "Fancy filters: {{ site_name | replace(\u201CDocs\u201D, \u201Cis totally cool\u201D) | capitalize }}";
-    const output = renderWithSubstitutions(input, { site_name: "MyST Docs" }, env);
-    expect(output).toBe("Fancy filters: Myst is totally cool");
   });
 
   it("substitutes merged values into text", () => {

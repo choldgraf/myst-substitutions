@@ -15,7 +15,7 @@ test: python-deps node-deps
     npm test
 
 docs: python-deps build
-    cd docs && myst build
+    cd docs && myst build --html
 
 docs-live: python-deps build
     cd docs && myst start

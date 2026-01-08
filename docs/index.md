@@ -4,6 +4,7 @@ substitutions:
   meeting_date: "2025-02-01"
   meeting_date_literal: "`2025-02-01`"
   release_channel: "preview"
+  myvar: "**Wow!**"
 ---
 
 # myst-substitutions
@@ -11,6 +12,44 @@ substitutions:
 A small MyST plugin that replaces Nunjucks-style `{{ var }}` tokens using values from project config and page frontmatter.
 
 Define a value once and reuse it across your documentation.
+
+## Basic usage
+
+Define key/value pairs in project or page metadata:
+
+```{code-block} md
+:filename: page.md
+---
+substitutions:
+  myvar: "**Wow!**"
+---
+```
+
+Then insert it with `{{ var }}` syntax in your MyST markdown:
+
+:::{myst:demo}
+Here's a styled variable: {{ myvar }}.
+:::
+
+Here are a few examples of how to use it:
+
+:::{myst:demo}
+Welcome to {{ site_name }}.
+
+Style variables in their definition: {{ brand_emphasis }}.
+
+Or style them in your content: **{{ site_name }}**.
+:::
+
+This even works in headers:
+
+:::{myst:demo}
+
+### Header variable: {{ site_name }}
+:::
+
+Limitations: substitutions are parsed as inline MyST only. Custom roles or
+directives (for example `{button}`) are not supported yet.
 
 ## Configuration
 
@@ -32,25 +71,6 @@ substitutions:
   release_channel: "preview"
 ---
 ```
-
-## Basic usage
-
-Use `{{ var }}` syntax to insert variables into your documentation:
-
-:::{myst:demo}
-Welcome to {{ site_name }}.
-
-Style variables in their definition: {{ brand_emphasis }}.
-
-Or style them in your content: **{{ site_name }}**.
-:::
-
-This even works in headers:
-
-:::{myst:demo}
-
-### Header variable: {{ site_name | literal }}
-:::
 
 ## Page-level over-rides
 
@@ -88,3 +108,8 @@ Advanced filters work (sometimes):
 :::
 
 However, **filters that split syntax across lines do not work**.
+
+## Known limitations
+
+- You cannot insert content that isn't part of the base `mystmd` package (e.g. roles defined in extra extensions, like `{button}` won't work until MyST transforms have the ability to re-use the `mystmd` parser.)
+- Variables that span multiple lines will not work right now! Keep your variables to a single line.
