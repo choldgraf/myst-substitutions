@@ -1,11 +1,9 @@
-set shell := ["bash", "-eu", "-o", "pipefail", "-c"]
-
 requirements := "requirements.txt"
-venv := ".venv"
-venv_bin := "{{venv}}/bin"
-python := "{{venv_bin}}/python"
-
-export PATH := "{{venv_bin}}:{{env_var('PATH')}}"
+root := justfile_directory()
+venv := root + "/.venv"
+venv_bin := venv + "/bin"
+python := venv_bin + "/python"
+myst := venv_bin + "/myst"
 
 venv:
     uv venv {{venv}}
@@ -20,10 +18,10 @@ build: node-deps
     npm run build
 
 test: python-deps node-deps
-    npm test
+    PATH="{{venv_bin}}:$PATH" npm test
 
 docs: python-deps build
-    cd docs && myst build --html
+    cd docs && {{myst}} build --html
 
 docs-live: python-deps build
-    cd docs && myst start
+    cd docs && {{myst}} start
