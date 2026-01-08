@@ -48,8 +48,9 @@ This even works in headers:
 ### Header variable: {{ site_name }}
 :::
 
-Limitations: substitutions are parsed as inline MyST only. Custom roles or
-directives (for example `{button}`) are not supported yet.
+:::{note} You'll see an expected warning
+MyST throws a warning if there's an un-recognized configuration (like `substitutions:`) so you'll see a warning about this, and can safely ignore it.
+:::
 
 ## Configuration
 

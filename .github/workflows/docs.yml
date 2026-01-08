@@ -28,6 +28,8 @@ jobs:
       - uses: extractions/setup-just@v2
       - name: Build docs
         run: just docs
+        env:
+          BASE_URL: /myst-substitutions
       - name: Upload docs artifact
         uses: actions/upload-pages-artifact@v3
         with:
