@@ -1,9 +1,11 @@
 set shell := ["bash", "-eu", "-o", "pipefail", "-c"]
 
 requirements := "requirements.txt"
+venv := ".venv"
 
 python-deps:
-    uv pip install -r {{requirements}}
+    uv venv {{venv}}
+    uv pip install -r {{requirements}} --python {{venv}}/bin/python
 
 node-deps:
     npm install

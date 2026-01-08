@@ -5,3 +5,4 @@ site/
 _build
 __pycache__
 dist/
+.venv/
