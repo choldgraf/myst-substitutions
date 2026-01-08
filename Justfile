@@ -2,10 +2,16 @@ set shell := ["bash", "-eu", "-o", "pipefail", "-c"]
 
 requirements := "requirements.txt"
 venv := ".venv"
+venv_bin := "{{venv}}/bin"
+python := "{{venv_bin}}/python"
 
-python-deps:
+export PATH := "{{venv_bin}}:{{env_var('PATH')}}"
+
+venv:
     uv venv {{venv}}
-    uv pip install -r {{requirements}} --python {{venv}}/bin/python
+
+python-deps: venv
+    uv pip install -r {{requirements}} --python {{python}}
 
 node-deps:
     npm install
