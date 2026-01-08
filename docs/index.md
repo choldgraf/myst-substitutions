@@ -15,6 +15,15 @@ Define a value once and reuse it across your documentation.
 
 ## Basic usage
 
+Enable by adding the `.mjs` file for the latest release of this plugin in your `myst.yml` plugins configuration:
+
+```{code-block} yaml
+:filename: myst.yml
+project:
+  plugins:
+    - https://github.com/choldgraf/myst-substitutions/releases/download/v0.1/index.mjs
+```
+
 Define key/value pairs in project or page metadata:
 
 ```{code-block} md
