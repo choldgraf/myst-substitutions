@@ -40,6 +40,11 @@ Then insert it with `{{ var }}` syntax in your MyST markdown:
 Here's a styled variable: {{ myvar }}.
 :::
 
+:::{note} You'll see an expected warning
+MyST throws a warning if there's an un-recognized configuration (like `substitutions:`) so you'll see a warning about this, and can safely ignore it.
+:::
+
+
 Here are a few examples of how to use it:
 
 :::{myst:demo}
@@ -57,9 +62,6 @@ This even works in headers:
 ### Header variable: {{ site_name }}
 :::
 
-:::{note} You'll see an expected warning
-MyST throws a warning if there's an un-recognized configuration (like `substitutions:`) so you'll see a warning about this, and can safely ignore it.
-:::
 
 ## Configuration
 
@@ -67,7 +69,7 @@ Define substitutions at either the project-level (in `myst.yml`), or in page fro
 
 ```{literalinclude} ./myst.yml
 :language: yaml
-:lines: 2-11
+:lines: 2-16
 ```
 
 ```{code-block} yaml
@@ -105,21 +107,29 @@ Shout it: {{ site_name | upper }}!
 Fancy filters: {{ site_name | replace("Docs", "is totally cool") | upper }}
 :::
 
-Advanced filters work (sometimes):
+## Multi-line substitutions with the `{substitution}` directive
 
-:::{myst:demo}
-{% set items = [1,2,3,4,5,6] %}
-{% set dash = joiner("-") %}
-{% for item in items | batch(2) %}
-    {{ dash() }} {% for items in item %}
-       {{ items }}
-    {% endfor %}
+Use the `{substitution}` directive for multi-line content like lists and tables that can't be expressed inline:
+
+::::{myst:demo}
+:::{substitution}
+{% for item in items %}
+- **{{ item.name }}** — {{ item.role }}
 {% endfor %}
 :::
+::::
 
-However, **filters that split syntax across lines do not work**.
+This works with tables too:
+
+::::{myst:demo}
+:::{substitution}
+| Name | Role |
+| --- | --- |
+{% for item in items %}| {{ item.name }} | {{ item.role }} |
+{% endfor %}
+:::
+::::
 
 ## Known limitations
 
 - You cannot insert content that isn't part of the base `mystmd` package (e.g. roles defined in extra extensions, like `{button}` won't work until MyST transforms have the ability to re-use the `mystmd` parser.)
-- Variables that span multiple lines will not work right now! Keep your variables to a single line.
