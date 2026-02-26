@@ -6,6 +6,11 @@ import nunjucks from "nunjucks";
 import yaml from "js-yaml";
 import { VFile } from "vfile";
 
+const env = new nunjucks.Environment(null, {
+  autoescape: false,
+  throwOnUndefined: false,
+});
+
 function hasTemplateSyntax(text) {
   return text.includes("{{") || text.includes("{%") || text.includes("{#");
 }
@@ -51,11 +56,17 @@ export function mergeSubstitutions(projectSubstitutions, pageSubstitutions) {
   };
 }
 
+// Normalize smart/curly quotes back to straight quotes so Nunjucks
+// string arguments work. MyST initially converts these to "smart" quotes.
+function normalizeQuotes(text) {
+  return text.replace(/[\u201C\u201D]/g, '"').replace(/[\u2018\u2019]/g, "'");
+}
+
 // Render with Nunjucks; return the original text if parsing fails.
-export function renderWithSubstitutions(text, substitutions, env) {
+export function renderWithSubstitutions(text, substitutions) {
   if (!hasTemplateSyntax(text)) return text;
   try {
-    return env.renderString(text, substitutions);
+    return env.renderString(normalizeQuotes(text), substitutions);
   } catch {
     return text;
   }
@@ -74,13 +85,13 @@ function parseInlineMyst(content) {
 }
 
 // Walk text nodes and replace Nunjucks templates with rendered inline MyST.
-function applySubstitutionsToChildren(children, substitutions, env) {
+function applySubstitutionsToChildren(children, substitutions) {
   if (!Array.isArray(children)) return;
   let index = 0;
   while (index < children.length) {
     const child = children[index];
     if (child?.children) {
-      applySubstitutionsToChildren(child.children, substitutions, env);
+      applySubstitutionsToChildren(child.children, substitutions);
     }
     if (child?.type !== "text" || typeof child.value !== "string") {
       index += 1;
@@ -91,7 +102,7 @@ function applySubstitutionsToChildren(children, substitutions, env) {
       continue;
     }
 
-    const rendered = renderWithSubstitutions(child.value, substitutions, env);
+    const rendered = renderWithSubstitutions(child.value, substitutions);
     if (rendered === child.value) {
       index += 1;
       continue;
@@ -112,26 +123,45 @@ function applySubstitutionsToChildren(children, substitutions, env) {
   }
 }
 
+// Load substitutions for a given file and merge with project substitutions config
+function getSubstitutionsForFile(vfile) {
+  const rootDir = vfile?.cwd || process.cwd();
+  const filePath = vfile?.path;
+  const projectSubs = getProjectSubstitutions(rootDir);
+  const pageSubs = filePath ? getPageSubstitutions(filePath) : {};
+  return mergeSubstitutions(projectSubs, pageSubs);
+}
+
+const substitutionDirective = {
+  name: "substitution",
+  doc: "Render Nunjucks template as block-level MyST content. Supports loops, conditionals, tables, and lists.",
+  body: {
+    type: String,
+    doc: "Nunjucks template that produces MyST markdown",
+  },
+  run(data, vfile, ctx) {
+    const body = data.body?.trim();
+    if (!body) return [];
+
+    const substitutions = getSubstitutionsForFile(vfile);
+    const rendered = renderWithSubstitutions(body, substitutions);
+    const parsed = ctx.parseMyst(rendered);
+
+    return parsed?.children ?? [];
+  },
+};
+
 const substitutionsTransform = {
   name: "myst-substitutions",
   doc: "Replace Nunjucks-style substitutions using project and page metadata.",
   stage: "document",
   plugin: () => {
-    const env = new nunjucks.Environment(null, {
-      autoescape: false,
-      throwOnUndefined: false,
-    });
-
     return (tree, file) => {
-      // Merge project + page substitutions, then replace text nodes inline.
-      const rootDir = file?.cwd || process.cwd();
-      const projectSubstitutions = getProjectSubstitutions(rootDir);
-      const pageSubstitutions = getPageSubstitutions(file?.path);
-      const substitutions = mergeSubstitutions(projectSubstitutions, pageSubstitutions);
+      const substitutions = getSubstitutionsForFile(file);
 
       if (!Object.keys(substitutions).length) return tree;
 
-      applySubstitutionsToChildren(tree.children, substitutions, env);
+      applySubstitutionsToChildren(tree.children, substitutions);
 
       return tree;
     };
@@ -140,6 +170,7 @@ const substitutionsTransform = {
 
 const plugin = {
   name: "MyST Substitutions",
+  directives: [substitutionDirective],
   transforms: [substitutionsTransform],
 };
 

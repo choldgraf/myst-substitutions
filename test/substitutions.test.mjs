@@ -3,7 +3,6 @@ import os from "os";
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "fs";
 import { execFileSync } from "child_process";
 import { fileURLToPath } from "url";
-import nunjucks from "nunjucks";
 import { describe, it, expect } from "vitest";
 import plugin, {
   getProjectSubstitutions,
@@ -16,26 +15,24 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const fixturesDir = path.join(__dirname, "fixtures");
 const pagePath = path.join(fixturesDir, "page.md");
 
-function createEnv() {
-  return new nunjucks.Environment(null, {
-    autoescape: false,
-    throwOnUndefined: false,
-  });
-}
-
 describe("myst-substitutions", () => {
   it("renders Nunjucks-style variables and filters", () => {
-    const env = createEnv();
-    const output = renderWithSubstitutions("Hello {{ name | upper }}", { name: "myst" }, env);
+    const output = renderWithSubstitutions("Hello {{ name | upper }}", { name: "myst" });
     expect(output).toBe("Hello MYST");
   });
 
   it("renders filters with arguments", () => {
-    const env = createEnv();
     const output = renderWithSubstitutions(
       'Fancy filters: {{ site_name | replace("Docs", "Guide") }}',
       { site_name: "MyST Docs" },
-      env,
+    );
+    expect(output).toBe("Fancy filters: MyST Guide");
+  });
+
+  it("renders filters with smart quotes (curly quotes) normalized", () => {
+    const output = renderWithSubstitutions(
+      'Fancy filters: {{ site_name | replace(\u201CDocs\u201D, \u201CGuide\u201D) }}',
+      { site_name: "MyST Docs" },
     );
     expect(output).toBe("Fancy filters: MyST Guide");
   });
@@ -51,20 +48,17 @@ describe("myst-substitutions", () => {
   });
 
   it("leaves text without template syntax unchanged", () => {
-    const env = createEnv();
-    const output = renderWithSubstitutions("Nothing to replace here.", { name: "myst" }, env);
+    const output = renderWithSubstitutions("Nothing to replace here.", { name: "myst" });
     expect(output).toBe("Nothing to replace here.");
   });
 
   it("substitutes merged values into text", () => {
-    const env = createEnv();
     const project = getProjectSubstitutions(fixturesDir);
     const page = getPageSubstitutions(pagePath);
     const substitutions = mergeSubstitutions(project, page);
     const output = renderWithSubstitutions(
       "Release {{ version }} for {{ site_name }} on {{ meeting_date }}.",
       substitutions,
-      env,
     );
     expect(output).toBe("Release v2.0 for MyST Docs on 2025-02-01.");
   });
@@ -116,6 +110,9 @@ project:
   substitutions:
     site_name: "MyST Docs"
     release_channel: "stable"
+    items:
+      - name: "Alice"
+      - name: "Bob"
 `,
       );
       writeFileSync(
@@ -126,6 +123,12 @@ substitutions:
 ---
 
 Release {{ version }} for {{ site_name }} on {{ release_channel }}.
+
+:::{substitution}
+{% for item in items %}
+- {{ item.name }}
+{% endfor %}
+:::
 `,
       );
 
@@ -137,6 +140,8 @@ Release {{ version }} for {{ site_name }} on {{ release_channel }}.
 
       const built = readFileSync(outputPath, "utf8");
       expect(built).toContain("Release v2.0 for MyST Docs on stable.");
+      expect(built).toContain("Alice");
+      expect(built).toContain("Bob");
     } finally {
       rmSync(tempDir, { recursive: true, force: true });
     }

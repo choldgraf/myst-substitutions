@@ -9,6 +9,11 @@ project:
     version: "v1.3"
     site_name: "MyST Docs"
     release_channel: "stable"
+    items:
+      - name: "Alice"
+        role: "Chair"
+      - name: "Bob"
+        role: "Secretary"
   toc:
     - file: index.md
     - file: contributing/index.md
