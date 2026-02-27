@@ -1,6 +1,7 @@
 version: 1
 project:
-  title: myst-substitutions
+  title: "MyST Substitutions"
+  github: https://github.com/choldgraf/myst-substitutions
   plugins:
     - ../dist/index.mjs
     - https://raw.githubusercontent.com/jupyter-book/myst-plugins/main/plugins/demo/src/index.mjs
@@ -19,3 +20,5 @@ project:
     - file: contributing/index.md
 site:
   template: book-theme
+  options:
+    site_title: "MyST Substitutions"
